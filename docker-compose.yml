@@ -1,0 +1,79 @@
+services:
+
+ 
+  react:
+    image: nginx:alpine
+    container_name: react
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+    ports:
+      - "3001:80"
+    networks:
+      - webnet
+
+  nginx-proxy-manager:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: nginx_proxy_manager
+    ports:
+      - "81:81" # Interfaz gráfica de NGINX Proxy Manager
+      - "80:80" # HTTP
+      - "443:443" # HTTPS
+    volumes:
+      - ./nginx_proxy_manager/data:/data
+      - ./nginx_proxy_manager/letsencrypt:/etc/letsencrypt
+    depends_on:
+      - db
+    environment:
+      DB_MYSQL_HOST: db
+      DB_MYSQL_PORT: 3306
+      DB_MYSQL_USER: ${MYSQL_USER}
+      DB_MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      DB_MYSQL_NAME: nginx_db # Asegúrate que el nombre sea correcto
+    networks:
+      - webnet
+  posteio:
+    image: analogic/poste.io
+    container_name: posteio
+    environment:
+      - HTTPS=ON
+    #   POSTEIO_ADMIN_USER: admin
+    #   POSTEIO_ADMIN_PASSWORD: password
+    volumes:
+      - /root/mail-data/:/data
+      # - ./nginx_proxy_manager/letsencrypt/live/npm-6/fullchain.pem:/etc/ssl/certs/fullchain.pem
+      # - ./nginx_proxy_manager/letsencrypt/live/npm-6/privkey.pem:/etc/ssl/private/privkey.pem
+    networks:
+      - webnet
+    ports:
+      - "25:25" # SMTP
+      - "587:587" # SMTP Submission
+      - "993:993" # IMAPS
+      - "110:110" # POP3
+      - "995:995" # POP3S
+      - "143:143" # IMAP
+      - "4190:4190" # Sieve
+    stdin_open: true  # Equivalente al flag -i (interactivo)
+    tty: true
+    
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    command: -H unix:///var/run/docker.sock
+    ports:
+      - "8000:8000" # API (opcional)
+      - "9443:9443" # HTTPS para la interfaz web de Portainer
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+    networks:
+      - webnet
+
+volumes:
+  maildata:
+  mailstate:
+  portainer_data:
+  # posteio_data:
+  # posteio_ssl:
+
+networks:
+  webnet:
